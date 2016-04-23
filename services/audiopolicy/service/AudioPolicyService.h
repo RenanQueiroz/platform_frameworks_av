@@ -208,6 +208,9 @@ public:
     virtual float    getStreamVolumeDB(
                 audio_stream_type_t stream, int index, audio_devices_t device);
 
+    virtual status_t listAudioSessions(audio_stream_type_t stream,
+                                       Vector< sp<AudioSessionInfo>>& sessions);
+
             status_t doStopOutput(audio_io_handle_t output,
                                   audio_stream_type_t stream,
                                   audio_session_t session);
@@ -237,6 +240,9 @@ public:
             void doOnRecordingConfigurationUpdate(int event, const record_client_info_t *clientInfo,
                     const audio_config_base_t *clientConfig,
                     const audio_config_base_t *deviceConfig, audio_patch_handle_t patchHandle);
+
+            void onOutputSessionEffectsUpdate(sp<AudioSessionInfo>& info, bool added);
+            void doOnOutputSessionEffectsUpdate(sp<AudioSessionInfo>& info, bool added);
 
 private:
                         AudioPolicyService() ANDROID_API;
@@ -270,7 +276,8 @@ private:
             UPDATE_AUDIOPATCH_LIST,
             SET_AUDIOPORT_CONFIG,
             DYN_POLICY_MIX_STATE_UPDATE,
-            RECORDING_CONFIGURATION_UPDATE
+            RECORDING_CONFIGURATION_UPDATE,
+            EFFECT_SESSION_UPDATE,
         };
 
         AudioCommandThread (String8 name, const wp<AudioPolicyService>& service);
@@ -319,6 +326,7 @@ private:
                                                         const audio_config_base_t *deviceConfig,
                                                         audio_patch_handle_t patchHandle);
                     void        insertCommand_l(AudioCommand *command, int delayMs = 0);
+                    void        effectSessionUpdateCommand(sp<AudioSessionInfo>& info, bool added);
 
     private:
         class AudioCommandData;
@@ -422,6 +430,12 @@ private:
             struct audio_config_base mClientConfig;
             struct audio_config_base mDeviceConfig;
             audio_patch_handle_t mPatchHandle;
+        };
+
+        class EffectSessionUpdateData : public AudioCommandData {
+        public:
+            sp<AudioSessionInfo> mAudioSessionInfo;
+            bool mAdded;
         };
 
         Mutex   mLock;
@@ -537,6 +551,9 @@ private:
 
         virtual audio_unique_id_t newAudioUniqueId(audio_unique_id_use_t use);
 
+        virtual void onOutputSessionEffectsUpdate(sp<AudioSessionInfo>& info, bool added);
+
+
      private:
         AudioPolicyService *mAudioPolicyService;
     };
@@ -558,7 +575,8 @@ private:
                                         const audio_config_base_t *deviceConfig,
                                         audio_patch_handle_t patchHandle);
                             void      setAudioPortCallbacksEnabled(bool enabled);
-
+                            void      onOutputSessionEffectsUpdate(sp<AudioSessionInfo>& info,
+                                                                   bool added);
                 // IBinder::DeathRecipient
                 virtual     void        binderDied(const wp<IBinder>& who);
 
